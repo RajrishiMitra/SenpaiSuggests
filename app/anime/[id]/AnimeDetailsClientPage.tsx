@@ -98,21 +98,44 @@ export default function AnimeDetailsClientPage({
       }
 
       try {
+        console.log("[v0] Fetching characters for anime:", params.id)
+
         const [charactersRes, trailerId] = await Promise.all([
-          fetch(`${JIKAN}/anime/${params.id}/characters`, { next: { revalidate: 3600 } })
-            .then((res) => (res.ok ? res.json() : null))
-            .catch(() => null),
+          fetch(`${JIKAN}/anime/${params.id}/characters`, {
+            next: { revalidate: 3600 },
+            cache: "force-cache",
+          })
+            .then(async (res) => {
+              console.log("[v0] Characters API response status:", res.status)
+              if (res.ok) {
+                const data = await res.json()
+                console.log("[v0] Characters data received:", data?.data?.length || 0, "characters")
+                return data
+              }
+              console.log("[v0] Characters API failed with status:", res.status)
+              return null
+            })
+            .catch((error) => {
+              console.error("[v0] Characters fetch error:", error)
+              return null
+            }),
           getYouTubeTrailerId((initialAnime || anime)?.title || "", (initialAnime || anime)?.trailer?.youtube_id).catch(
             () => null,
           ),
         ])
 
-        if (charactersRes?.data) {
+        if (charactersRes?.data && Array.isArray(charactersRes.data)) {
+          console.log("[v0] Setting characters:", charactersRes.data.length)
           setCharacters(charactersRes.data)
+        } else {
+          console.log("[v0] No character data available")
+          setCharacters([])
         }
+
         setTrailerId(trailerId)
       } catch (error) {
-        console.error("Error fetching additional data:", error)
+        console.error("[v0] Error fetching additional data:", error)
+        setCharacters([]) // Ensure characters is set to empty array on error
       } finally {
         setDataLoading(false)
       }
