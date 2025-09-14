@@ -1,0 +1,409 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+  --color-bg: 10 12 20; /* #0A0C14 */
+  --shadow-outer: 8px 8px 16px #05060a, -8px -8px 16px #14161c;
+  --shadow-inner: inset 2px 2px 4px #14161c, inset -2px -2px 4px #05060a;
+  --shadow-inset: inset 8px 8px 16px #05060a, inset -8px -8px 16px #14161c;
+  --shadow-pressed: inset 4px 4px 8px #05060a, inset -4px -4px 8px #14161c;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  background: #0a0c14;
+  color: #e5e7eb !important; /* Override with high contrast color */
+  font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial,
+    "Apple Color Emoji", "Segoe UI Emoji";
+  min-height: 100vh;
+}
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+.neumorphic {
+  background: rgb(var(--color-bg));
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-outer), var(--shadow-inner);
+}
+
+.neumorphic-inset {
+  background: rgb(var(--color-bg));
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-inset);
+}
+
+.neumorphic-pressed {
+  background: rgb(var(--color-bg));
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-pressed);
+}
+
+.btn-neumorphic {
+  @apply px-6 py-3 rounded-xl font-medium text-gray-200 transition-all duration-200;
+  background: rgb(var(--color-bg));
+  box-shadow: var(--shadow-outer), var(--shadow-inner);
+  border: none;
+}
+
+.btn-neumorphic:hover {
+  box-shadow: 6px 6px 12px #05060a, -6px -6px 12px #14161c;
+  transform: translateY(-1px);
+}
+
+.btn-neumorphic:active {
+  box-shadow: var(--shadow-pressed);
+  transform: translateY(0);
+}
+
+.card-neumorphic {
+  @apply rounded-xl p-6;
+  background: rgb(var(--color-bg));
+  box-shadow: var(--shadow-outer), var(--shadow-inner);
+}
+
+.input-neumorphic {
+  @apply px-4 py-3 rounded-lg text-gray-200 placeholder-gray-400;
+  background: rgb(var(--color-bg));
+  box-shadow: var(--shadow-inset);
+  border: none;
+  outline: none;
+}
+
+.input-neumorphic:focus {
+  box-shadow: inset 6px 6px 12px #05060a, inset -6px -6px 12px #14161c;
+}
+
+.text-neumorphic {
+  color: #e5e7eb; /* Fixed contrast - using light gray instead of CSS variable */
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.text-muted-neumorphic {
+  color: #9ca3af; /* Fixed contrast - using medium gray for muted text */
+}
+
+.pill-neumorphic {
+  @apply inline-flex items-center rounded-full px-3 py-1.5 text-xs font-medium transition-all duration-300;
+  background: rgb(var(--color-bg));
+  color: #e5e7eb; /* Override with high contrast color */
+  box-shadow: 4px 4px 8px #05060a, -4px -4px 8px #14161c;
+}
+
+.pill-neumorphic:hover {
+  box-shadow: 2px 2px 4px #05060a, -2px -2px 4px #14161c;
+  transform: translateY(-1px);
+}
+
+.section-neumorphic {
+  position: relative;
+  padding-bottom: 0.5rem;
+  color: #e5e7eb; /* Override with high contrast color */
+  font-weight: 600;
+}
+
+.section-neumorphic::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  width: 64px;
+  background: rgb(var(--color-accent));
+  border-radius: 9999px;
+  box-shadow: 2px 2px 4px #05060a, -2px -2px 4px #14161c;
+}
+
+.frame-neumorphic {
+  @apply rounded-xl p-3;
+  background: rgb(var(--color-bg));
+  box-shadow: var(--shadow-outer), var(--shadow-inner);
+}
+
+.backtotop {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  z-index: 50;
+}
+
+.backtotop > button {
+  height: 3rem;
+  width: 3rem;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(var(--color-bg));
+  color: #e5e7eb; /* Override with high contrast color */
+  box-shadow: var(--shadow-outer), var(--shadow-inner);
+  transition: all 0.2s ease;
+}
+
+.backtotop > button:hover {
+  box-shadow: 6px 6px 12px #05060a, -6px -6px 12px #14161c;
+  transform: translateY(-2px);
+}
+
+.backtotop > button:active {
+  box-shadow: var(--shadow-pressed);
+  transform: translateY(0);
+}
+
+.pagination-neumorphic {
+  @apply flex items-center gap-2;
+}
+
+.pagination-neumorphic button {
+  @apply px-4 py-2 rounded-lg font-medium transition-all duration-200;
+  background: rgb(var(--color-bg));
+  color: #e5e7eb; /* Override with high contrast color */
+  box-shadow: var(--shadow-outer), var(--shadow-inner);
+}
+
+.pagination-neumorphic button:hover:not(:disabled) {
+  box-shadow: 6px 6px 12px #05060a, -6px -6px 12px #14161c;
+  transform: translateY(-1px);
+}
+
+.pagination-neumorphic button:active:not(:disabled) {
+  box-shadow: var(--shadow-pressed);
+  transform: translateY(0);
+}
+
+.pagination-neumorphic button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: var(--shadow-inset);
+}
+
+.spinner-neumorphic {
+  @apply w-8 h-8 rounded-full;
+  background: conic-gradient(from 0deg, transparent, rgb(var(--color-accent)), transparent);
+  animation: spin 1s linear infinite;
+}
+
+.spinner-neumorphic::before {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  background: rgb(var(--color-bg));
+  border-radius: 50%;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    color: inherit; /* Ensure all text elements have proper contrast */
+  }
+  body {
+    @apply bg-background;
+    color: #e5e7eb !important; /* Override with high contrast color */
+  }
+}
+
+/* Adding neumorphic cast card styling */
+.cast-card-cyberpunk {
+  @apply rounded-2xl p-4 transition-all duration-300 cursor-pointer;
+  background: #0a0c14;
+  box-shadow: 6px 6px 12px #05060a, -6px -8px 16px #14161c;
+  position: relative;
+  overflow: hidden;
+}
+
+.cast-card-cyberpunk:hover {
+  transform: scale(1.02);
+  box-shadow: 8px 8px 16px #05060a, -8px -8px 16px #14161c;
+}
+
+.cast-hud-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(176, 132, 247, 0.05) 0%, transparent 50%);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.cast-card-cyberpunk:hover .cast-hud-overlay {
+  opacity: 1;
+}
+
+.cast-avatar-frame {
+  @apply relative mb-3 overflow-hidden rounded-xl;
+  aspect-ratio: 3 / 4;
+}
+
+.cast-avatar-image {
+  @apply w-full h-full object-cover;
+  box-shadow: inset 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.cast-avatar-glow {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(45deg, transparent 30%, rgba(176, 132, 247, 0.05) 50%, transparent 70%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.cast-card-cyberpunk:hover .cast-avatar-glow {
+  opacity: 1;
+}
+
+.cast-info {
+  @apply text-center space-y-1;
+}
+
+.cast-character-name {
+  @apply font-bold text-sm leading-tight;
+  color: #b084f7;
+  text-shadow: 0 0 4px rgba(176, 132, 247, 0.2);
+}
+
+.cast-va-info {
+  @apply flex flex-col items-center gap-0.5;
+}
+
+.cast-va-label {
+  @apply text-xs font-medium opacity-70;
+  color: #ccc;
+}
+
+.cast-va-name {
+  @apply text-xs leading-tight;
+  color: #ccc;
+}
+
+/* Responsive grid for cast section */
+.cast-grid {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: repeat(2, 1fr);
+}
+
+@media (min-width: 768px) {
+  .cast-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .cast-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+/* Tooltip styling for cast cards */
+.cast-tooltip {
+  @apply absolute z-50 px-3 py-2 text-xs rounded-lg pointer-events-none opacity-0 transition-opacity duration-200;
+  background: rgba(10, 12, 20, 0.95);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(176, 132, 247, 0.2);
+  color: #e5e7eb;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transform: translateX(-50%);
+  bottom: 100%;
+  left: 50%;
+  margin-bottom: 8px;
+}
+
+.cast-card-cyberpunk:hover .cast-tooltip {
+  opacity: 1;
+}
+
+.cast-tooltip::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 4px solid transparent;
+  border-top-color: rgba(176, 132, 247, 0.2);
+}
