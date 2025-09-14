@@ -1,5 +1,19 @@
 import Link from "next/link"
+import { Suspense } from "react"
 import { SearchBar } from "@/components/search-bar"
+
+function SearchBarFallback() {
+  return (
+    <div className="flex items-center gap-2">
+      <div className="w-full rounded-full bg-neumorphic-surface px-4 py-3 shadow-neumorphic-inset border-0">
+        <div className="h-5 bg-neumorphic-muted/20 rounded animate-pulse"></div>
+      </div>
+      <div className="px-6 py-3 rounded-full bg-neumorphic-surface shadow-neumorphic">
+        <div className="h-5 w-12 bg-neumorphic-muted/20 rounded animate-pulse"></div>
+      </div>
+    </div>
+  )
+}
 
 export function Hero() {
   return (
@@ -15,7 +29,9 @@ export function Hero() {
             Explore personalized recommendations, trending shows, and hidden gems—styled with a sleek, modern UI.
           </p>
           <div className="mt-6 frame-neumorphic p-4">
-            <SearchBar />
+            <Suspense fallback={<SearchBarFallback />}>
+              <SearchBar />
+            </Suspense>
           </div>
           <div className="mt-8 flex items-center gap-4">
             <Link href="/recommend" className="btn-neumorphic px-5 py-3 rounded-md text-sm font-medium">
