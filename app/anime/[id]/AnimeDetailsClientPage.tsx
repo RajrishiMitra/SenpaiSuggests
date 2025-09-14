@@ -14,22 +14,6 @@ import { getCachedData, setCachedData } from "@/lib/cache"
 
 const JIKAN = "https://api.jikan.moe/v4"
 
-async function getDetails(id: string) {
-  const [detailRes, charsRes] = await Promise.all([
-    fetch(`${JIKAN}/anime/${id}/full`, { next: { revalidate: 3600 } }),
-    fetch(`${JIKAN}/anime/${id}/characters`, { next: { revalidate: 3600 } }),
-  ])
-  if (!detailRes.ok) throw new Error("Failed to load details")
-  const detailJson = await detailRes.json()
-  const anime = detailJson?.data
-  let characters: any[] = []
-  if (charsRes.ok) {
-    const charsJson = await charsRes.json()
-    characters = charsJson?.data || []
-  }
-  return { anime, characters }
-}
-
 async function getYouTubeTrailerId(title: string, fallbackId?: string | null): Promise<string | null> {
   if (fallbackId) return fallbackId
   if (!process.env.YOUTUBE_API_KEY) return null
@@ -66,12 +50,14 @@ function platformSearchLinks(title: string) {
 export default function AnimeDetailsClientPage({
   params,
   initialAnime,
+  initialCharacters = [],
 }: {
   params: { id: string }
   initialAnime: any
+  initialCharacters?: any[]
 }) {
   const [anime, setAnime] = React.useState<any>(initialAnime)
-  const [characters, setCharacters] = React.useState<any[]>([])
+  const [characters, setCharacters] = React.useState<any[]>(initialCharacters)
   const [trailerId, setTrailerId] = React.useState<string | null>(null)
   const [user, setUser] = useState<any>(null)
   const [isWatched, setIsWatched] = useState(false)
@@ -81,68 +67,22 @@ export default function AnimeDetailsClientPage({
   const [notes, setNotes] = useState("")
   const [loading, setLoading] = useState(false)
   const [dataLoading, setDataLoading] = useState(!initialAnime)
-  const [charactersLoading, setCharactersLoading] = useState(true)
 
   const supabase = createClient()
 
   useEffect(() => {
     const fetchAdditionalData = async () => {
-      setCharactersLoading(true)
-
-      if (!initialAnime) {
-        try {
-          const { anime } = await getDetails(params.id)
-          setAnime(anime)
-        } catch (error) {
-          console.error("Failed to fetch anime data:", error)
-          setDataLoading(false)
-          setCharactersLoading(false)
-          return
-        }
-      }
-
       try {
-        console.log("[v0] Fetching characters for anime:", params.id)
-
-        const [charactersRes, trailerId] = await Promise.all([
-          fetch(`${JIKAN}/anime/${params.id}/characters`, {
-            next: { revalidate: 3600 },
-            cache: "force-cache",
-          })
-            .then(async (res) => {
-              console.log("[v0] Characters API response status:", res.status)
-              if (res.ok) {
-                const data = await res.json()
-                console.log("[v0] Characters data received:", data?.data?.length || 0, "characters")
-                return data
-              }
-              console.log("[v0] Characters API failed with status:", res.status)
-              return null
-            })
-            .catch((error) => {
-              console.error("[v0] Characters fetch error:", error)
-              return null
-            }),
-          getYouTubeTrailerId((initialAnime || anime)?.title || "", (initialAnime || anime)?.trailer?.youtube_id).catch(
-            () => null,
-          ),
-        ])
-
-        if (charactersRes?.data && Array.isArray(charactersRes.data)) {
-          console.log("[v0] Setting characters:", charactersRes.data.length)
-          setCharacters(charactersRes.data)
-        } else {
-          console.log("[v0] No character data available")
-          setCharacters([])
-        }
+        const trailerId = await getYouTubeTrailerId(
+          (initialAnime || anime)?.title || "",
+          (initialAnime || anime)?.trailer?.youtube_id,
+        ).catch(() => null)
 
         setTrailerId(trailerId)
       } catch (error) {
-        console.error("[v0] Error fetching additional data:", error)
-        setCharacters([]) // Ensure characters is set to empty array on error
+        console.error("Error fetching trailer:", error)
       } finally {
         setDataLoading(false)
-        setCharactersLoading(false)
       }
     }
 
@@ -460,7 +400,7 @@ export default function AnimeDetailsClientPage({
                       boxShadow: "6px 6px 12px #05060a, -6px -6px 12px #14161c",
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.boxShadow = "0 0 8px #8a2be2, 6px 6px 12px #05060a, -6px -6px 12px #14161c"
+                      e.currentTarget.style.boxShadow = "0 0 8px #8a2be2, 6px 6px 12px #05060a, -6px -6px 16px #14161c"
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.boxShadow = "6px 6px 12px #05060a, -6px -6px 12px #14161c"
@@ -469,7 +409,7 @@ export default function AnimeDetailsClientPage({
                       e.currentTarget.style.boxShadow = "inset 4px 4px 8px #05060a, inset -4px -4px 8px #14161c"
                     }}
                     onMouseUp={(e) => {
-                      e.currentTarget.style.boxShadow = "0 0 8px #8a2be2, 6px 6px 12px #05060a, -6px -6px 12px #14161c"
+                      e.currentTarget.style.boxShadow = "0 0 8px #8a2be2, 6px 6px 16px #05060a, -6px -6px 12px #14161c"
                     }}
                   >
                     <span className="inline-flex items-center gap-2">
@@ -519,11 +459,7 @@ export default function AnimeDetailsClientPage({
               <h2 className="section-neumorphic text-2xl mb-6 font-semibold">
                 <span style={{ color: "#B084F7" }}>Cast</span>
               </h2>
-              {charactersLoading ? (
-                <div className="card-neumorphic">
-                  <p className="text-neumorphic text-center py-8">Loading cast information...</p>
-                </div>
-              ) : cast.length > 0 ? (
+              {cast.length > 0 ? (
                 <div className="cast-grid">
                   {cast.map((c, i) => (
                     <div key={i} className="cast-card-cyberpunk group">

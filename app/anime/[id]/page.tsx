@@ -4,11 +4,19 @@ import AnimeDetailsClientPage from "./AnimeDetailsClientPage"
 const JIKAN = "https://api.jikan.moe/v4"
 
 async function getDetails(id: string) {
-  const [detailRes] = await Promise.all([fetch(`${JIKAN}/anime/${id}/full`, { next: { revalidate: 3600 } })])
+  const [detailRes, charsRes] = await Promise.all([
+    fetch(`${JIKAN}/anime/${id}/full`, { next: { revalidate: 3600 } }),
+    fetch(`${JIKAN}/anime/${id}/characters`, { next: { revalidate: 3600 } }),
+  ])
   if (!detailRes.ok) throw new Error("Failed to load details")
   const detailJson = await detailRes.json()
   const anime = detailJson?.data
-  return { anime }
+  let characters: any[] = []
+  if (charsRes.ok) {
+    const charsJson = await charsRes.json()
+    characters = charsJson?.data || []
+  }
+  return { anime, characters }
 }
 
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
@@ -25,9 +33,9 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
 
 export default async function AnimeDetailsPage({ params }: { params: { id: string } }) {
   try {
-    const { anime } = await getDetails(params.id)
-    return <AnimeDetailsClientPage params={params} initialAnime={anime} />
+    const { anime, characters } = await getDetails(params.id)
+    return <AnimeDetailsClientPage params={params} initialAnime={anime} initialCharacters={characters} />
   } catch (error) {
-    return <AnimeDetailsClientPage params={params} initialAnime={null} />
+    return <AnimeDetailsClientPage params={params} initialAnime={null} initialCharacters={[]} />
   }
 }
