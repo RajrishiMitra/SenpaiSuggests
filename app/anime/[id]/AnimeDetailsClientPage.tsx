@@ -271,6 +271,10 @@ export default function AnimeDetailsClientPage({
       : null,
   }))
 
+  console.log("[v0] Characters array length:", characters.length)
+  console.log("[v0] Cast array length:", cast.length)
+  console.log("[v0] First cast item:", cast[0])
+
   const platforms = platformSearchLinks(anime?.title || "")
 
   return (
@@ -508,45 +512,53 @@ export default function AnimeDetailsClientPage({
               <h2 className="section-neumorphic text-2xl mb-6 font-semibold">
                 <span style={{ color: "#B084F7" }}>Cast</span>
               </h2>
-              <div className="cast-grid">
-                {cast.map((c, i) => (
-                  <div key={i} className="cast-card-cyberpunk group">
-                    <div className="cast-hud-overlay" />
+              {cast.length > 0 ? (
+                <div className="cast-grid">
+                  {cast.map((c, i) => (
+                    <div key={i} className="cast-card-cyberpunk group">
+                      <div className="cast-hud-overlay" />
 
-                    <div className="cast-tooltip">
-                      <div>Character: {c.character.name}</div>
-                      {c.va && <div>VA: {c.va.name}</div>}
-                    </div>
+                      <div className="cast-tooltip">
+                        <div>Character: {c.character.name || "Unknown"}</div>
+                        {c.va && <div>VA: {c.va.name}</div>}
+                      </div>
 
-                    <div className="cast-avatar-frame">
-                      {c.character.image ? (
-                        <img
-                          alt={c.character.name}
-                          src={c.character.image || "/placeholder.svg"}
-                          className="cast-avatar-image"
-                        />
-                      ) : (
-                        <div className="cast-avatar-image flex items-center justify-center bg-neumorphic-surface">
-                          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-                            <span className="text-white font-bold text-xl">?</span>
+                      <div className="cast-avatar-frame">
+                        {c.character.image ? (
+                          <img
+                            alt={c.character.name || "Character"}
+                            src={c.character.image || "/placeholder.svg"}
+                            className="cast-avatar-image"
+                          />
+                        ) : (
+                          <div className="cast-avatar-image flex items-center justify-center bg-neumorphic-surface">
+                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                              <span className="text-white font-bold text-xl">?</span>
+                            </div>
                           </div>
-                        </div>
-                      )}
-                      <div className="cast-avatar-glow" />
-                    </div>
+                        )}
+                        <div className="cast-avatar-glow" />
+                      </div>
 
-                    <div className="cast-info">
-                      <div className="cast-character-name">{c.character.name}</div>
-                      {c.va && (
-                        <div className="cast-va-info">
-                          <span className="cast-va-label">VA</span>
-                          <span className="cast-va-name">{c.va.name}</span>
-                        </div>
-                      )}
+                      <div className="cast-info">
+                        <div className="cast-character-name">{c.character.name || "Unknown Character"}</div>
+                        {c.va && (
+                          <div className="cast-va-info">
+                            <span className="cast-va-label">VA</span>
+                            <span className="cast-va-name">{c.va.name}</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="card-neumorphic">
+                  <p className="text-neumorphic text-center py-8">
+                    {characters.length === 0 ? "Loading cast information..." : "No cast information available."}
+                  </p>
+                </div>
+              )}
             </section>
           </div>
         </div>
