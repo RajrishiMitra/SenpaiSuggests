@@ -270,15 +270,17 @@ export default function AnimeDetailsClientPage({
   }
 
   const cast = (characters || []).slice(0, 12).map((c: any) => ({
-    character: { name: c?.character?.name, image: c?.character?.images?.jpg?.image_url },
+    character: {
+      name: c?.character?.name,
+      image: c?.character?.images?.jpg?.image_url,
+    },
     va: c?.voice_actors?.[0]
-      ? { name: c.voice_actors[0].person?.name, image: c.voice_actors[0].person?.images?.jpg?.image_url }
+      ? {
+          name: c.voice_actors[0].person?.name,
+          image: c.voice_actors[0].person?.images?.jpg?.image_url,
+        }
       : null,
   }))
-
-  console.log("[v0] Characters array length:", characters.length)
-  console.log("[v0] Cast array length:", cast.length)
-  console.log("[v0] First cast item:", cast[0])
 
   const platforms = platformSearchLinks(anime?.title || "")
 
