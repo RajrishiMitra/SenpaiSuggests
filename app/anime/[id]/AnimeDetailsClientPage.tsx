@@ -81,11 +81,14 @@ export default function AnimeDetailsClientPage({
   const [notes, setNotes] = useState("")
   const [loading, setLoading] = useState(false)
   const [dataLoading, setDataLoading] = useState(!initialAnime)
+  const [charactersLoading, setCharactersLoading] = useState(true)
 
   const supabase = createClient()
 
   useEffect(() => {
     const fetchAdditionalData = async () => {
+      setCharactersLoading(true)
+
       if (!initialAnime) {
         try {
           const { anime } = await getDetails(params.id)
@@ -93,6 +96,7 @@ export default function AnimeDetailsClientPage({
         } catch (error) {
           console.error("Failed to fetch anime data:", error)
           setDataLoading(false)
+          setCharactersLoading(false)
           return
         }
       }
@@ -138,6 +142,7 @@ export default function AnimeDetailsClientPage({
         setCharacters([]) // Ensure characters is set to empty array on error
       } finally {
         setDataLoading(false)
+        setCharactersLoading(false)
       }
     }
 
@@ -324,7 +329,7 @@ export default function AnimeDetailsClientPage({
                             e.currentTarget.style.boxShadow = "inset 4px 4px 8px #05060a, inset -4px -4px 8px #14161c"
                           }}
                           onMouseUp={(e) => {
-                            e.currentTarget.style.boxShadow = "8px 8px 16px #05060a, -8px -8px 16px #14161c"
+                            e.currentTarget.style.boxShadow = "8px 8px 16px #05060a, -8px -8px 12px #14161c"
                           }}
                         >
                           <Eye className="h-4 w-4 text-[#E0E0E0]" />
@@ -351,7 +356,7 @@ export default function AnimeDetailsClientPage({
                             e.currentTarget.style.boxShadow = "inset 4px 4px 8px #05060a, inset -4px -4px 8px #14161c"
                           }}
                           onMouseUp={(e) => {
-                            e.currentTarget.style.boxShadow = "8px 8px 16px #05060a, -8px -8px 16px #14161c"
+                            e.currentTarget.style.boxShadow = "8px 8px 16px #05060a, -8px -8px 12px #14161c"
                           }}
                         >
                           <EyeOff className="h-4 w-4 text-[#E0E0E0]" />
@@ -360,7 +365,7 @@ export default function AnimeDetailsClientPage({
                     ) : (
                       <button
                         onClick={() => setShowWatchedModal(true)}
-                        className="px-6 py-3 rounded-full flex items-center justify-center gap-2 font-medium text-white transition-all duration-300"
+                        className="px-6 py-3 rounded-full flex items-center justify-center gap-2 transition-all duration-300 font-medium text-white"
                         style={{
                           background: "#0A0C14",
                           boxShadow: "6px 6px 12px #05060a, -6px -6px 12px #14161c",
@@ -376,7 +381,7 @@ export default function AnimeDetailsClientPage({
                           e.currentTarget.style.boxShadow = "inset 4px 4px 8px #05060a, inset -4px -4px 8px #14161c"
                         }}
                         onMouseUp={(e) => {
-                          e.currentTarget.style.boxShadow = "8px 8px 16px #05060a, -8px -8px 16px #14161c"
+                          e.currentTarget.style.boxShadow = "8px 8px 16px #05060a, -8px -8px 12px #14161c"
                         }}
                       >
                         <Eye className="h-4 w-4 text-[#E0E0E0]" />
@@ -405,7 +410,7 @@ export default function AnimeDetailsClientPage({
                           e.currentTarget.style.boxShadow = "inset 4px 4px 8px #05060a, inset -4px -4px 8px #14161c"
                         }}
                         onMouseUp={(e) => {
-                          e.currentTarget.style.boxShadow = "8px 8px 16px #05060a, -8px -8px 16px #14161c"
+                          e.currentTarget.style.boxShadow = "8px 8px 16px #05060a, -8px -8px 12px #14161c"
                         }}
                       >
                         <BookOpen className="w-4 h-4 text-[#E0E0E0]" />
@@ -512,7 +517,11 @@ export default function AnimeDetailsClientPage({
               <h2 className="section-neumorphic text-2xl mb-6 font-semibold">
                 <span style={{ color: "#B084F7" }}>Cast</span>
               </h2>
-              {cast.length > 0 ? (
+              {charactersLoading ? (
+                <div className="card-neumorphic">
+                  <p className="text-neumorphic text-center py-8">Loading cast information...</p>
+                </div>
+              ) : cast.length > 0 ? (
                 <div className="cast-grid">
                   {cast.map((c, i) => (
                     <div key={i} className="cast-card-cyberpunk group">
@@ -554,9 +563,7 @@ export default function AnimeDetailsClientPage({
                 </div>
               ) : (
                 <div className="card-neumorphic">
-                  <p className="text-neumorphic text-center py-8">
-                    {characters.length === 0 ? "Loading cast information..." : "No cast information available."}
-                  </p>
+                  <p className="text-neumorphic text-center py-8">No cast information available.</p>
                 </div>
               )}
             </section>
