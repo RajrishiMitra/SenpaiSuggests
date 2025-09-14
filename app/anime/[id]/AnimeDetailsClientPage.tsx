@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Star, Check, X, Eye, EyeOff, BookOpen } from "lucide-react"
+import { getCachedData, setCachedData } from "@/lib/cache"
 
 const JIKAN = "https://api.jikan.moe/v4"
 
@@ -32,14 +33,21 @@ async function getDetails(id: string) {
 async function getYouTubeTrailerId(title: string, fallbackId?: string | null): Promise<string | null> {
   if (fallbackId) return fallbackId
   if (!process.env.YOUTUBE_API_KEY) return null
+
+  const cacheKey = `youtube_${title}`
+  const cached = getCachedData(cacheKey)
+  if (cached) return cached
+
   try {
     const q = encodeURIComponent(`${title} trailer`)
     const r = await fetch(
       `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=1&q=${q}&key=${process.env.YOUTUBE_API_KEY}`,
-      { cache: "no-store" },
+      { cache: "force-cache" },
     )
     const j = await r.json()
-    return j?.items?.[0]?.id?.videoId ?? null
+    const videoId = j?.items?.[0]?.id?.videoId ?? null
+    setCachedData(cacheKey, videoId)
+    return videoId
   } catch {
     return null
   }
@@ -55,8 +63,14 @@ function platformSearchLinks(title: string) {
   ]
 }
 
-export default function AnimeDetailsClientPage({ params }: { params: { id: string } }) {
-  const [anime, setAnime] = React.useState<any>(null)
+export default function AnimeDetailsClientPage({
+  params,
+  initialAnime,
+}: {
+  params: { id: string }
+  initialAnime: any
+}) {
+  const [anime, setAnime] = React.useState<any>(initialAnime)
   const [characters, setCharacters] = React.useState<any[]>([])
   const [trailerId, setTrailerId] = React.useState<string | null>(null)
   const [user, setUser] = useState<any>(null)
@@ -66,21 +80,47 @@ export default function AnimeDetailsClientPage({ params }: { params: { id: strin
   const [rating, setRating] = useState(0)
   const [notes, setNotes] = useState("")
   const [loading, setLoading] = useState(false)
+  const [dataLoading, setDataLoading] = useState(!initialAnime)
 
   const supabase = createClient()
 
   useEffect(() => {
-    const fetchData = async () => {
-      const { anime, characters } = await getDetails(params.id)
-      setAnime(anime)
-      setCharacters(characters)
-      const trailerId = await getYouTubeTrailerId(anime?.title || "", anime?.trailer?.youtube_id)
-      setTrailerId(trailerId)
+    const fetchAdditionalData = async () => {
+      if (!initialAnime) {
+        try {
+          const { anime } = await getDetails(params.id)
+          setAnime(anime)
+        } catch (error) {
+          console.error("Failed to fetch anime data:", error)
+          setDataLoading(false)
+          return
+        }
+      }
+
+      try {
+        const [charactersRes, trailerId] = await Promise.all([
+          fetch(`${JIKAN}/anime/${params.id}/characters`, { next: { revalidate: 3600 } })
+            .then((res) => (res.ok ? res.json() : null))
+            .catch(() => null),
+          getYouTubeTrailerId((initialAnime || anime)?.title || "", (initialAnime || anime)?.trailer?.youtube_id).catch(
+            () => null,
+          ),
+        ])
+
+        if (charactersRes?.data) {
+          setCharacters(charactersRes.data)
+        }
+        setTrailerId(trailerId)
+      } catch (error) {
+        console.error("Error fetching additional data:", error)
+      } finally {
+        setDataLoading(false)
+      }
     }
 
-    fetchData()
+    fetchAdditionalData()
     checkAuthAndWatchedStatus()
-  }, [params.id])
+  }, [params.id, initialAnime])
 
   const checkAuthAndWatchedStatus = async () => {
     try {
@@ -179,8 +219,26 @@ export default function AnimeDetailsClientPage({ params }: { params: { id: strin
     }
   }
 
-  if (!anime) {
-    return <div>Loading...</div>
+  if (dataLoading || !anime) {
+    return (
+      <main className="relative overflow-hidden">
+        <div className="navbar-container">
+          <Navbar />
+        </div>
+        <div className="px-4 py-8 md:px-8">
+          <div className="mx-auto max-w-6xl">
+            <div className="mb-6">
+              <BackButton />
+            </div>
+            <div className="animate-pulse space-y-8">
+              <div className="h-16 bg-neumorphic-surface rounded-lg"></div>
+              <div className="h-64 bg-neumorphic-surface rounded-lg"></div>
+              <div className="h-32 bg-neumorphic-surface rounded-lg"></div>
+            </div>
+          </div>
+        </div>
+      </main>
+    )
   }
 
   const cast = (characters || []).slice(0, 12).map((c: any) => ({

@@ -24,5 +24,10 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
 }
 
 export default async function AnimeDetailsPage({ params }: { params: { id: string } }) {
-  return <AnimeDetailsClientPage params={params} />
+  try {
+    const { anime } = await getDetails(params.id)
+    return <AnimeDetailsClientPage params={params} initialAnime={anime} />
+  } catch (error) {
+    return <AnimeDetailsClientPage params={params} initialAnime={null} />
+  }
 }
