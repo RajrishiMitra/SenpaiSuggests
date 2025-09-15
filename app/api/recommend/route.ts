@@ -34,7 +34,6 @@ function cosine(a: number[], b: number[]) {
   return denom ? dot / denom : 0
 }
 
-// extremely light token -> tf vector for fallback
 function tfVector(text: string, vocab: Map<string, number>) {
   const tokens = (text || "")
     .toLowerCase()
@@ -202,9 +201,19 @@ export async function GET(req: NextRequest) {
     ]
   }
 
+  // 🔹 Deduplicate by mal_id
+  const uniqueMap = new Map<number, JikanAnime>()
+  for (const anime of enriched) {
+    if (!uniqueMap.has(anime.mal_id)) {
+      uniqueMap.set(anime.mal_id, anime)
+    }
+  }
+  const uniqueEnriched = Array.from(uniqueMap.values())
+  console.log("[rec] After dedupe:", uniqueEnriched.length, "unique animes")
+
   // 4) Compute similarity
   const baseSynopsis = base.synopsis || base.title
-  const candTexts = enriched.map((c) => c.synopsis || c.title)
+  const candTexts = uniqueEnriched.map((c) => c.synopsis || c.title)
   let sims: number[] = []
 
   const embeddings = await hfEmbeddings([baseSynopsis, ...candTexts])
@@ -222,7 +231,7 @@ export async function GET(req: NextRequest) {
 
   // genre + score boost
   const baseGenres = new Set((base.genres || []).map((g) => g.name))
-  const boosted = enriched.map((c, i) => {
+  const boosted = uniqueEnriched.map((c, i) => {
     const gset = new Set((c.genres || []).map((g) => g.name))
     const inter = [...gset].filter((g) => baseGenres.has(g)).length
     const union = new Set<string>([...gset, ...baseGenres]).size || 1
