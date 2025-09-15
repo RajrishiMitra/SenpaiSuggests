@@ -66,16 +66,15 @@ function buildVocab(texts: string[]) {
   return vocab
 }
 
-async function hfEmbeddings(texts: string[]): Promise<number[][] | null> {
+async function hfGetSimilarityScores(base: string, candidates: string[]): Promise<number[] | null> {
   if (!HF_API_KEY) {
     console.log("[v0] No HuggingFace API key, using TF-IDF fallback")
     return null
   }
   try {
-    console.log(`[v0] Attempting HuggingFace embeddings for ${texts.length} texts`)
-    const validTexts = texts.filter((text) => text && text.trim().length > 0)
-    if (validTexts.length === 0) {
-      console.log("[v0] No valid texts for embeddings")
+    console.log(`[v0] Attempting HuggingFace similarity for ${candidates.length} candidates`)
+    if (!base || candidates.length === 0) {
+      console.log("[v0] No valid base or candidate texts for similarity")
       return null
     }
 
@@ -85,21 +84,29 @@ async function hfEmbeddings(texts: string[]): Promise<number[][] | null> {
         Authorization: `Bearer ${HF_API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ sentences: validTexts }),
+      body: JSON.stringify({
+        inputs: {
+          source_sentence: base,
+          sentences: candidates,
+        },
+        parameters: { wait_for_model: true },
+      }),
     })
 
     if (!res.ok) {
       const errorText = await res.text()
       console.log(`[v0] HuggingFace API failed with status: ${res.status}`)
       console.log(`[v0] HuggingFace error response: ${errorText}`)
-      console.log(`[v0] Request payload size: ${JSON.stringify({ sentences: validTexts }).length} chars`)
+      const payload = { inputs: { source_sentence: base, sentences: candidates } }
+      console.log(`[v0] Request payload size: ${JSON.stringify(payload).length} chars`)
       return null
     }
 
     const data = await res.json()
-    if (Array.isArray(data) && data.length > 0 && Array.isArray(data[0])) {
-      console.log(`[v0] HuggingFace embeddings successful: ${data.length} vectors`)
-      return data as number[][]
+    // The sentence similarity API returns a flat array of scores
+    if (Array.isArray(data) && (data.length === 0 || typeof data[0] === "number")) {
+      console.log(`[v0] HuggingFace similarity successful: ${data.length} scores`)
+      return data as number[]
     }
 
     if (data?.error) {
@@ -110,7 +117,7 @@ async function hfEmbeddings(texts: string[]): Promise<number[][] | null> {
     console.log(`[v0] HuggingFace unexpected response format:`, typeof data)
     return null
   } catch (err) {
-    console.log(`[v0] HuggingFace embedding fetch error: ${err}`)
+    console.log(`[v0] HuggingFace similarity fetch error: ${err}`)
     return null
   }
 }
@@ -211,20 +218,18 @@ export async function GET(req: NextRequest) {
   // 4) Compute similarity
   const baseSynopsis = base.synopsis || base.title
   const candTexts = uniqueEnriched.map((c) => c.synopsis || c.title)
-  let sims: number[] = []
+  let sims: number[] | null = await hfGetSimilarityScores(baseSynopsis, candTexts)
 
-  const embeddings = await hfEmbeddings([baseSynopsis, ...candTexts])
-  if (embeddings) {
-    console.log(`[v0] Using HuggingFace embeddings for similarity`)
-    const baseVec = embeddings[0]
-    const candVecs = embeddings.slice(1)
-    sims = candVecs.map((v) => cosine(baseVec, v))
-  } else {
+  let usingHf = true
+  if (!sims) {
+    usingHf = false
     console.log(`[v0] Using TF-IDF fallback`)
     const vocab = buildVocab([baseSynopsis, ...candTexts])
     const baseVec = tfVector(baseSynopsis, vocab)
     sims = candTexts.map((txt) => cosine(baseVec, tfVector(txt, vocab)))
     console.log(`[v0] TF-IDF similarities: ${sims.map((s) => s.toFixed(3)).join(", ")}`)
+  } else {
+    console.log(`[v0] Using HuggingFace similarity scores`)
   }
 
   // genre + score boost
@@ -235,13 +240,14 @@ export async function GET(req: NextRequest) {
     const union = new Set<string>([...gset, ...baseGenres]).size || 1
     const jaccard = inter / union
     const scoreNorm = typeof c.score === "number" ? Math.min(Math.max((c.score - 4) / 6, 0), 1) : 0
-    const final = 0.7 * sims[i] + 0.2 * jaccard + 0.1 * scoreNorm
+    // sims array is guaranteed to be non-null here
+    const final = 0.7 * (sims as number[])[i] + 0.2 * jaccard + 0.1 * scoreNorm
     return { anime: c, final }
   })
 
   boosted.sort((a, b) => b.final - a.final)
 
-  const minSimilarity = embeddings ? 0.1 : 0.05 // Lower threshold for TF-IDF
+  const minSimilarity = usingHf ? 0.1 : 0.05 // Lower threshold for TF-IDF
   const qualityFiltered = boosted.filter(({ final }) => final > minSimilarity)
 
   // Take up to 12 results, but ensure minimum quality
