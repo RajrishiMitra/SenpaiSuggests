@@ -69,8 +69,12 @@ function buildVocab(texts: string[]) {
 }
 
 async function hfEmbeddings(texts: string[]): Promise<number[][] | null> {
-  if (!HF_API_KEY) return null
+  if (!HF_API_KEY) {
+    console.log("[v0] No HuggingFace API key, using fallback")
+    return null
+  }
   try {
+    console.log("[v0] Attempting HuggingFace embeddings for", texts.length, "texts")
     const res = await fetchHuggingFaceWithRetries(`https://api-inference.huggingface.co/models/${HF_MODEL}`, {
       method: "POST",
       headers: {
@@ -79,13 +83,19 @@ async function hfEmbeddings(texts: string[]): Promise<number[][] | null> {
       },
       body: JSON.stringify({ inputs: texts }),
     })
-    if (!res.ok) return null
+    if (!res.ok) {
+      console.log("[v0] HuggingFace API failed with status:", res.status)
+      return null
+    }
     const data = await res.json()
     if (Array.isArray(data) && Array.isArray(data[0])) {
+      console.log("[v0] HuggingFace embeddings successful")
       return data as number[][]
     }
+    console.log("[v0] HuggingFace returned unexpected format:", typeof data)
     return null
-  } catch {
+  } catch (error) {
+    console.log("[v0] HuggingFace embeddings error:", error)
     return null
   }
 }
@@ -103,6 +113,7 @@ async function jikan<T = any>(url: string, init?: RequestInit): Promise<T | null
 
 export async function GET(req: NextRequest) {
   const q = (req.nextUrl.searchParams.get("anime") || "").trim()
+  console.log("[v0] Recommendation request for:", q)
   if (!q) return NextResponse.json([], { status: 200 })
 
   // 1) find base anime by title
@@ -110,16 +121,24 @@ export async function GET(req: NextRequest) {
     `https://api.jikan.moe/v4/anime?q=${encodeURIComponent(q)}&order_by=score&sort=desc&limit=1`,
   )
   const base = baseList?.[0]
-  if (!base) return NextResponse.json([], { status: 200 })
+  if (!base) {
+    console.log("[v0] No base anime found for:", q)
+    return NextResponse.json([], { status: 200 })
+  }
+  console.log("[v0] Found base anime:", base.title, "ID:", base.mal_id)
 
   // 2) grab recommendation seeds from Jikan
   const recs = await jikan<JikanRecommendation[]>(`https://api.jikan.moe/v4/anime/${base.mal_id}/recommendations`)
 
   // If no recommendations, just bail out with empty
-  if (!recs || recs.length === 0) return NextResponse.json([], { status: 200 })
+  if (!recs || recs.length === 0) {
+    console.log("[v0] No recommendations found for:", base.title)
+    return NextResponse.json([], { status: 200 })
+  }
+  console.log("[v0] Found", recs.length, "recommendation seeds")
 
   // 3) enrich each with details (synopsis, score, genres)
-  const candidates = recs.slice(0, 10) // cap to 10 for performance
+  const candidates = recs.slice(0, 20) // increased from 10 for more options
   const settled = await Promise.allSettled(
     candidates.map(async (r) => jikan<JikanAnime>(`https://api.jikan.moe/v4/anime/${r.entry.mal_id}`)),
   )
@@ -127,6 +146,8 @@ export async function GET(req: NextRequest) {
     .filter((s): s is PromiseFulfilledResult<JikanAnime | null> => s.status === "fulfilled")
     .map((s) => s.value)
     .filter(Boolean) as JikanAnime[]
+
+  console.log("[v0] Enriched", enriched.length, "candidates from", candidates.length, "seeds")
 
   // 4) compute similarity
   const baseSynopsis = base.synopsis || base.title
@@ -136,10 +157,12 @@ export async function GET(req: NextRequest) {
   // Try HuggingFace embeddings first
   const embeddings = await hfEmbeddings([baseSynopsis, ...candTexts])
   if (embeddings) {
+    console.log("[v0] Using HuggingFace embeddings")
     const baseVec = embeddings[0]
     const candVecs = embeddings.slice(1)
     sims = candVecs.map((v) => cosine(baseVec, v))
   } else {
+    console.log("[v0] Using TF-IDF fallback")
     // fallback: tf cosine over light vocab
     const vocab = buildVocab([baseSynopsis, ...candTexts])
     const baseVec = tfVector(baseSynopsis, vocab)
@@ -161,14 +184,14 @@ export async function GET(req: NextRequest) {
   boosted.sort((a, b) => b.final - a.final)
 
   // 5) map to UI shape
-  const items = boosted.slice(0, 10).map(({ anime }) => ({
+  const items = boosted.slice(0, 12).map(({ anime }) => ({
     id: String(anime.mal_id),
     title: anime.title,
     synopsis: anime.synopsis,
     genres: (anime.genres || []).map((g) => g.name),
     score:
       typeof anime.score === "number"
-        ? parseFloat(anime.score.toFixed(2)) // force 2 decimals
+        ? Number.parseFloat(anime.score.toFixed(2)) // force 2 decimals
         : undefined,
     image:
       anime.images?.jpg?.image_url ||
@@ -177,5 +200,6 @@ export async function GET(req: NextRequest) {
     url: anime.url,
   }))
 
+  console.log("[v0] Returning", items.length, "recommendations")
   return NextResponse.json(items, { headers: { "content-type": "application/json" } })
 }
