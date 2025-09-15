@@ -10,34 +10,58 @@ export async function fetchHuggingFaceWithRetries(
   init: RequestInit = {},
   maxRetries = HF_MAX_RETRIES,
 ): Promise<Response> {
-  let attempt = 0
-  let lastErr: any = null
-
-  while (attempt <= maxRetries) {
-    const resp = await fetch(url, init)
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      // Clone to read body without consuming original
-      const clone = resp.clone()
-      const text = await clone.text()
-      // Try JSON parse; if fails, it's not the loading error
-      let json: any = null
-      try {
-        json = JSON.parse(text)
-      } catch {}
-      if (
-        json?.error &&
-        typeof json.error === "string" &&
-        json.error.toLowerCase().includes("model is currently loading")
-      ) {
-        if (attempt === maxRetries) return resp // give up but return last response
-        await sleep(HF_RETRY_DELAY_MS)
-        attempt++
-        continue
+      const resp = await fetch(url, init)
+
+      // If the response is OK (200-299), return it immediately.
+      if (resp.ok) {
+        return resp
       }
-    } catch (e) {
-      lastErr = e
+
+      // For server-side errors (5xx), we should retry.
+      if (resp.status >= 500 && resp.status <= 599) {
+        console.warn(`[hf-fetch] Received server error: ${resp.status}. Retrying...`)
+        if (attempt < maxRetries) {
+          await sleep(HF_RETRY_DELAY_MS * (attempt + 1))
+          continue
+        } else {
+          // Return the last failed response if all retries are exhausted.
+          return resp
+        }
+      }
+
+      // For client-side errors (4xx), we check for the specific "model loading" case.
+      if (resp.status >= 400 && resp.status <= 499) {
+        // Clone to read body without consuming original response stream
+        const respClone = resp.clone()
+        const body = await respClone.json().catch(() => ({}))
+
+        if (body?.error?.toLowerCase().includes("model is currently loading")) {
+          console.warn(`[hf-fetch] Model is loading. Retrying...`)
+          if (attempt < maxRetries) {
+            await sleep(HF_RETRY_DELAY_MS * (attempt + 1))
+            continue
+          } else {
+            return resp
+          }
+        }
+      }
+
+      // For any other non-ok response, don't retry, just return it.
+      return resp
+    } catch (error) {
+      console.error(`[hf-fetch] Request failed with network error: ${error}. Retrying...`)
+      if (attempt < maxRetries) {
+        await sleep(HF_RETRY_DELAY_MS * (attempt + 1))
+        continue
+      } else {
+        // If all retries fail due to network errors, throw the last error.
+        throw new Error(`Hugging Face request failed after ${maxRetries} retries: ${error}`)
+      }
     }
-    return resp
   }
-  throw lastErr ?? new Error("Hugging Face request failed after retries")
+
+  // This part should be unreachable, but as a fallback, throw an error.
+  throw new Error("Hugging Face request failed unexpectedly after all retries.")
 }
