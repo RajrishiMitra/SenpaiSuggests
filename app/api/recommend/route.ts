@@ -24,7 +24,9 @@ const HF_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 const HF_API_KEY = process.env.HUGGINGFACE_API_KEY
 
 function cosine(a: number[], b: number[]) {
-  let dot = 0, na = 0, nb = 0
+  let dot = 0,
+    na = 0,
+    nb = 0
   for (let i = 0; i < a.length && i < b.length; i++) {
     dot += a[i] * b[i]
     na += a[i] * a[i]
@@ -66,56 +68,55 @@ function buildVocab(texts: string[]) {
 
 async function hfEmbeddings(texts: string[]): Promise<number[][] | null> {
   if (!HF_API_KEY) {
-    console.log("[hf] No HuggingFace API key, using fallback")
+    console.log("[v0] No HuggingFace API key, using TF-IDF fallback")
     return null
   }
   try {
-    console.log("[hf] Requesting embeddings for", texts.length, "texts")
+    console.log(`[v0] Attempting HuggingFace embeddings for ${texts.length} texts`)
     const validTexts = texts.filter((text) => text && text.trim().length > 0)
-    if (validTexts.length === 0) return null
+    if (validTexts.length === 0) {
+      console.log("[v0] No valid texts for embeddings")
+      return null
+    }
 
-    const res = await fetchHuggingFaceWithRetries(
-      `https://api-inference.huggingface.co/models/${HF_MODEL}`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${HF_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ inputs: validTexts }),
-      }
-    )
+    const res = await fetchHuggingFaceWithRetries(`https://api-inference.huggingface.co/models/${HF_MODEL}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${HF_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ inputs: validTexts }),
+    })
 
     if (!res.ok) {
       const errorText = await res.text()
-      console.warn("[hf] API failed", res.status, errorText)
+      console.log(`[v0] HuggingFace API failed with status: ${res.status}`)
+      console.log(`[v0] HuggingFace error response: ${errorText}`)
+      console.log(`[v0] Request payload size: ${JSON.stringify({ inputs: validTexts }).length} chars`)
       return null
     }
 
     const data = await res.json()
     if (Array.isArray(data) && data.length > 0 && Array.isArray(data[0])) {
+      console.log(`[v0] HuggingFace embeddings successful: ${data.length} vectors`)
       return data as number[][]
     }
 
     if (data?.error) {
-      console.warn("[hf] Model error:", data.error)
+      console.log(`[v0] HuggingFace model error: ${data.error}`)
       return null
     }
 
-    console.warn("[hf] Unexpected response:", data)
+    console.log(`[v0] HuggingFace unexpected response format:`, typeof data)
     return null
   } catch (err) {
-    console.error("[hf] Embedding fetch error:", err)
+    console.log(`[v0] HuggingFace embedding fetch error: ${err}`)
     return null
   }
 }
 
 // Retry wrapper for Jikan API
-async function jikan<T = any>(
-  url: string,
-  init?: RequestInit,
-  retries = 3
-): Promise<T | null> {
+async function jikan<T = any>(url: string, init?: RequestInit, retries = 3): Promise<T | null> {
   for (let i = 0; i < retries; i++) {
     try {
       const res = await fetch(url, { ...init })
@@ -134,13 +135,11 @@ async function jikan<T = any>(
 
 export async function GET(req: NextRequest) {
   const q = (req.nextUrl.searchParams.get("anime") || "").trim()
-  console.log("[rec] Request for:", q)
+  console.log(`[v0] Recommendation request for: ${q}`)
   if (!q) return NextResponse.json([], { status: 200 })
 
   // 1) Search base anime
-  const baseList = await jikan<JikanAnime[]>(
-    `https://api.jikan.moe/v4/anime?q=${encodeURIComponent(q)}&limit=10`
-  )
+  const baseList = await jikan<JikanAnime[]>(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(q)}&limit=10`)
 
   let base: JikanAnime | undefined
   if (baseList && baseList.length > 0) {
@@ -150,41 +149,39 @@ export async function GET(req: NextRequest) {
         (anime) =>
           anime.title.toLowerCase() === queryLower ||
           anime.title.toLowerCase().includes(queryLower) ||
-          queryLower.includes(anime.title.toLowerCase().split(" ")[0])
+          queryLower.includes(anime.title.toLowerCase().split(" ")[0]),
       ) || baseList[0]
   }
 
   if (!base) {
-    console.log("[rec] No base anime found for:", q)
+    console.log(`[v0] No base anime found for: ${q}`)
     return NextResponse.json([], { status: 200 })
   }
-  console.log("[rec] Base anime:", base.title, "ID:", base.mal_id)
+  console.log(`[v0] Found base anime: ${base.title} ID: ${base.mal_id}`)
 
   // 2) Recommendations
-  const recs = await jikan<JikanRecommendation[]>(
-    `https://api.jikan.moe/v4/anime/${base.mal_id}/recommendations`
-  )
+  const recs = await jikan<JikanRecommendation[]>(`https://api.jikan.moe/v4/anime/${base.mal_id}/recommendations`)
   if (!recs || recs.length === 0) {
-    console.log("[rec] No rec seeds found for:", base.title)
+    console.log(`[v0] No recommendation seeds found for: ${base.title}`)
     return NextResponse.json([], { status: 200 })
   }
-  console.log("[rec] Found", recs.length, "seeds")
+  console.log(`[v0] Found ${recs.length} recommendation seeds`)
 
   // 3) Enrich details
   const candidates = recs.slice(0, 20)
   const settled = await Promise.allSettled(
-    candidates.map((r) => jikan<JikanAnime>(`https://api.jikan.moe/v4/anime/${r.entry.mal_id}`))
+    candidates.map((r) => jikan<JikanAnime>(`https://api.jikan.moe/v4/anime/${r.entry.mal_id}`)),
   )
   let enriched = settled
     .filter((s): s is PromiseFulfilledResult<JikanAnime | null> => s.status === "fulfilled")
     .map((s) => s.value)
     .filter(Boolean) as JikanAnime[]
 
-  console.log("[rec] Enriched", enriched.length, "from", candidates.length)
+  console.log(`[v0] Enriched ${enriched.length} candidates from ${candidates.length} seeds`)
 
   // fallback: if too few enriched, use raw seeds
   if (enriched.length < 5) {
-    console.warn("[rec] Low enrichment, padding with raw seeds")
+    console.warn("[v0] Low enrichment, padding with raw seeds")
     enriched = [
       ...enriched,
       ...candidates
@@ -209,7 +206,7 @@ export async function GET(req: NextRequest) {
     }
   }
   const uniqueEnriched = Array.from(uniqueMap.values())
-  console.log("[rec] After dedupe:", uniqueEnriched.length, "unique animes")
+  console.log(`[v0] After deduplication: ${uniqueEnriched.length} unique anime`)
 
   // 4) Compute similarity
   const baseSynopsis = base.synopsis || base.title
@@ -218,15 +215,16 @@ export async function GET(req: NextRequest) {
 
   const embeddings = await hfEmbeddings([baseSynopsis, ...candTexts])
   if (embeddings) {
-    console.log("[rec] Using HuggingFace embeddings")
+    console.log(`[v0] Using HuggingFace embeddings for similarity`)
     const baseVec = embeddings[0]
     const candVecs = embeddings.slice(1)
     sims = candVecs.map((v) => cosine(baseVec, v))
   } else {
-    console.log("[rec] Using TF-IDF fallback")
+    console.log(`[v0] Using TF-IDF fallback`)
     const vocab = buildVocab([baseSynopsis, ...candTexts])
     const baseVec = tfVector(baseSynopsis, vocab)
     sims = candTexts.map((txt) => cosine(baseVec, tfVector(txt, vocab)))
+    console.log(`[v0] TF-IDF similarities: ${sims.map((s) => s.toFixed(3)).join(", ")}`)
   }
 
   // genre + score boost
@@ -236,36 +234,35 @@ export async function GET(req: NextRequest) {
     const inter = [...gset].filter((g) => baseGenres.has(g)).length
     const union = new Set<string>([...gset, ...baseGenres]).size || 1
     const jaccard = inter / union
-    const scoreNorm =
-      typeof c.score === "number"
-        ? Math.min(Math.max((c.score - 4) / 6, 0), 1)
-        : 0
+    const scoreNorm = typeof c.score === "number" ? Math.min(Math.max((c.score - 4) / 6, 0), 1) : 0
     const final = 0.7 * sims[i] + 0.2 * jaccard + 0.1 * scoreNorm
     return { anime: c, final }
   })
 
   boosted.sort((a, b) => b.final - a.final)
 
+  const minSimilarity = embeddings ? 0.1 : 0.05 // Lower threshold for TF-IDF
+  const qualityFiltered = boosted.filter(({ final }) => final > minSimilarity)
+
+  // Take up to 12 results, but ensure minimum quality
+  const finalResults = qualityFiltered.length >= 3 ? qualityFiltered : boosted
+
   // 5) Map for UI
-  const items = boosted.slice(0, 12).map(({ anime }) => ({
+  const items = finalResults.slice(0, 12).map(({ anime, final }) => ({
     id: String(anime.mal_id),
     title: anime.title,
     synopsis: anime.synopsis,
     genres: (anime.genres || []).map((g) => g.name),
-    score:
-      typeof anime.score === "number"
-        ? Number.parseFloat(anime.score.toFixed(2))
-        : undefined,
+    score: typeof anime.score === "number" ? Number.parseFloat(anime.score.toFixed(2)) : undefined,
     image:
       anime.images?.jpg?.image_url ||
       anime.images?.webp?.image_url ||
-      `/placeholder.svg?height=288&width=512&query=anime%20cover%20${encodeURIComponent(
-        anime.title
-      )}`,
+      `/placeholder.svg?height=288&width=512&query=anime%20cover%20${encodeURIComponent(anime.title)}`,
     url: anime.url,
+    similarity: Number.parseFloat(final.toFixed(3)), // Added similarity score for debugging
   }))
 
-  console.log("[rec] Returning", items.length, "recommendations")
+  console.log(`[v0] Returning ${items.length} recommendations`)
   return NextResponse.json(items, {
     headers: { "content-type": "application/json" },
   })
