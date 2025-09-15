@@ -75,24 +75,46 @@ async function hfEmbeddings(texts: string[]): Promise<number[][] | null> {
   }
   try {
     console.log("[v0] Attempting HuggingFace embeddings for", texts.length, "texts")
+
+    // Ensure texts are not empty and properly formatted
+    const validTexts = texts.filter((text) => text && text.trim().length > 0)
+    if (validTexts.length === 0) {
+      console.log("[v0] No valid texts for HuggingFace embeddings")
+      return null
+    }
+
     const res = await fetchHuggingFaceWithRetries(`https://api-inference.huggingface.co/models/${HF_MODEL}`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${HF_API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ inputs: texts }),
+      body: JSON.stringify({ inputs: validTexts }),
     })
+
     if (!res.ok) {
+      const errorText = await res.text()
       console.log("[v0] HuggingFace API failed with status:", res.status)
+      console.log("[v0] HuggingFace error response:", errorText)
       return null
     }
+
     const data = await res.json()
-    if (Array.isArray(data) && Array.isArray(data[0])) {
+
+    if (Array.isArray(data) && data.length > 0 && Array.isArray(data[0])) {
       console.log("[v0] HuggingFace embeddings successful")
       return data as number[][]
     }
-    console.log("[v0] HuggingFace returned unexpected format:", typeof data)
+
+    if (data?.error && typeof data.error === "string") {
+      console.log("[v0] HuggingFace model error:", data.error)
+      if (data.error.toLowerCase().includes("loading")) {
+        console.log("[v0] Model is loading, using fallback")
+      }
+      return null
+    }
+
+    console.log("[v0] HuggingFace returned unexpected format:", typeof data, data)
     return null
   } catch (error) {
     console.log("[v0] HuggingFace embeddings error:", error)
