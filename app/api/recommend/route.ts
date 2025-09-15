@@ -116,11 +116,29 @@ export async function GET(req: NextRequest) {
   console.log("[v0] Recommendation request for:", q)
   if (!q) return NextResponse.json([], { status: 200 })
 
-  // 1) find base anime by title
-  const baseList = await jikan<JikanAnime[]>(
-    `https://api.jikan.moe/v4/anime?q=${encodeURIComponent(q)}&order_by=score&sort=desc&limit=1`,
-  )
-  const base = baseList?.[0]
+  // 1) Try exact search first with more results
+  const baseList = await jikan<JikanAnime[]>(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(q)}&limit=10`)
+
+  let base: JikanAnime | undefined
+
+  if (baseList && baseList.length > 0) {
+    // Find the best match by title similarity
+    const queryLower = q.toLowerCase()
+
+    // First, try to find exact matches
+    base = baseList.find(
+      (anime) =>
+        anime.title.toLowerCase() === queryLower ||
+        anime.title.toLowerCase().includes(queryLower) ||
+        queryLower.includes(anime.title.toLowerCase().split(" ")[0]), // partial match
+    )
+
+    // If no good match found, use the first result (highest scored)
+    if (!base) {
+      base = baseList[0]
+    }
+  }
+
   if (!base) {
     console.log("[v0] No base anime found for:", q)
     return NextResponse.json([], { status: 200 })
