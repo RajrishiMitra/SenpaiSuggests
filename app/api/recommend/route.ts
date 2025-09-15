@@ -85,14 +85,14 @@ async function hfEmbeddings(texts: string[]): Promise<number[][] | null> {
         Authorization: `Bearer ${HF_API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ inputs: validTexts }),
+      body: JSON.stringify({ sentences: validTexts }),
     })
 
     if (!res.ok) {
       const errorText = await res.text()
       console.log(`[v0] HuggingFace API failed with status: ${res.status}`)
       console.log(`[v0] HuggingFace error response: ${errorText}`)
-      console.log(`[v0] Request payload size: ${JSON.stringify({ inputs: validTexts }).length} chars`)
+      console.log(`[v0] Request payload size: ${JSON.stringify({ sentences: validTexts }).length} chars`)
       return null
     }
 
