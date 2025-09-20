@@ -1,5 +1,4 @@
 import { NextResponse, type NextRequest } from "next/server"
-import { fetchHuggingFaceWithRetries } from "@/lib/hf"
 
 type JikanAnime = {
   mal_id: number
@@ -20,8 +19,8 @@ type JikanRecommendation = {
   }
 }
 
-const HF_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
-const HF_API_KEY = process.env.HUGGINGFACE_API_KEY
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY
+const OPENAI_MODEL = "gpt-4o-mini"
 
 function cosine(a: number[], b: number[]) {
   let dot = 0,
@@ -66,51 +65,111 @@ function buildVocab(texts: string[]) {
   return vocab
 }
 
-async function hfEmbeddings(texts: string[]): Promise<number[][] | null> {
-  if (!HF_API_KEY) {
-    console.log("[v0] No HuggingFace API key, using TF-IDF fallback")
+async function rankWithOpenAI(
+  baseAnime: JikanAnime,
+  candidates: JikanAnime[],
+): Promise<{ anime: JikanAnime; score: number }[] | null> {
+  if (!OPENAI_API_KEY) {
+    console.log("[v0] No OpenAI API key, using TF-IDF fallback")
     return null
   }
+
   try {
-    console.log(`[v0] Attempting HuggingFace embeddings for ${texts.length} texts`)
-    const validTexts = texts.filter((text) => text && text.trim().length > 0)
-    if (validTexts.length === 0) {
-      console.log("[v0] No valid texts for embeddings")
-      return null
+    console.log(`[v0] Attempting OpenAI ranking for ${candidates.length} candidates`)
+
+    // Prepare base anime description
+    const baseDescription = {
+      title: baseAnime.title,
+      synopsis: baseAnime.synopsis || "No synopsis available",
+      genres: (baseAnime.genres || []).map((g) => g.name).join(", ") || "Unknown",
+      score: baseAnime.score || "Not rated",
     }
 
-    const res = await fetchHuggingFaceWithRetries(`https://api-inference.huggingface.co/models/${HF_MODEL}`, {
+    // Prepare candidate descriptions
+    const candidateDescriptions = candidates.map((anime, index) => ({
+      index,
+      title: anime.title,
+      synopsis: anime.synopsis || "No synopsis available",
+      genres: (anime.genres || []).map((g) => g.name).join(", ") || "Unknown",
+      score: anime.score || "Not rated",
+    }))
+
+    const prompt = `You are an anime recommendation expert. Given a base anime and a list of candidate anime, rank the candidates by similarity to the base anime. Consider plot themes, genres, character types, setting, and overall tone.
+
+Base Anime:
+Title: ${baseDescription.title}
+Synopsis: ${baseDescription.synopsis}
+Genres: ${baseDescription.genres}
+MAL Score: ${baseDescription.score}
+
+Candidate Anime to Rank:
+${candidateDescriptions
+  .map(
+    (c) => `${c.index}: ${c.title}
+Synopsis: ${c.synopsis}
+Genres: ${c.genres}
+Score: ${c.score}`,
+  )
+  .join("\n\n")}
+
+Return ONLY a JSON array with objects containing "index" (the candidate index) and "similarity" (a score from 0.0 to 1.0). Order by similarity descending. Example format:
+[{"index": 2, "similarity": 0.95}, {"index": 0, "similarity": 0.87}, {"index": 1, "similarity": 0.72}]`
+
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${HF_API_KEY}`,
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ sentences: validTexts }),
+      body: JSON.stringify({
+        model: OPENAI_MODEL,
+        messages: [
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        temperature: 0.1,
+        max_tokens: 1000,
+      }),
     })
 
-    if (!res.ok) {
-      const errorText = await res.text()
-      console.log(`[v0] HuggingFace API failed with status: ${res.status}`)
-      console.log(`[v0] HuggingFace error response: ${errorText}`)
-      console.log(`[v0] Request payload size: ${JSON.stringify({ sentences: validTexts }).length} chars`)
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.log(`[v0] OpenAI API failed with status: ${response.status}`)
+      console.log(`[v0] OpenAI error response: ${errorText}`)
       return null
     }
 
-    const data = await res.json()
-    if (Array.isArray(data) && data.length > 0 && Array.isArray(data[0])) {
-      console.log(`[v0] HuggingFace embeddings successful: ${data.length} vectors`)
-      return data as number[][]
-    }
+    const data = await response.json()
+    const content = data.choices?.[0]?.message?.content
 
-    if (data?.error) {
-      console.log(`[v0] HuggingFace model error: ${data.error}`)
+    if (!content) {
+      console.log("[v0] OpenAI returned no content")
       return null
     }
 
-    console.log(`[v0] HuggingFace unexpected response format:`, typeof data)
-    return null
+    // Parse the JSON response
+    const rankings = JSON.parse(content.trim())
+
+    if (!Array.isArray(rankings)) {
+      console.log("[v0] OpenAI response is not an array")
+      return null
+    }
+
+    // Map rankings back to anime objects
+    const rankedResults = rankings
+      .filter((r) => typeof r.index === "number" && typeof r.similarity === "number")
+      .map((r) => ({
+        anime: candidates[r.index],
+        score: r.similarity,
+      }))
+      .filter((r) => r.anime) // Remove any invalid indices
+
+    console.log(`[v0] OpenAI ranking successful: ${rankedResults.length} ranked anime`)
+    return rankedResults
   } catch (err) {
-    console.log(`[v0] HuggingFace embedding fetch error: ${err}`)
+    console.log(`[v0] OpenAI ranking error: ${err}`)
     return null
   }
 }
@@ -208,47 +267,45 @@ export async function GET(req: NextRequest) {
   const uniqueEnriched = Array.from(uniqueMap.values())
   console.log(`[v0] After deduplication: ${uniqueEnriched.length} unique anime`)
 
-  // 4) Compute similarity
-  const baseSynopsis = base.synopsis || base.title
-  const candTexts = uniqueEnriched.map((c) => c.synopsis || c.title)
-  let sims: number[] = []
+  let rankedResults = await rankWithOpenAI(base, uniqueEnriched)
 
-  const embeddings = await hfEmbeddings([baseSynopsis, ...candTexts])
-  if (embeddings) {
-    console.log(`[v0] Using HuggingFace embeddings for similarity`)
-    const baseVec = embeddings[0]
-    const candVecs = embeddings.slice(1)
-    sims = candVecs.map((v) => cosine(baseVec, v))
+  if (rankedResults) {
+    console.log(`[v0] Using OpenAI ranking for recommendations`)
   } else {
     console.log(`[v0] Using TF-IDF fallback`)
+    // Fallback to TF-IDF when OpenAI fails
+    const baseSynopsis = base.synopsis || base.title
+    const candTexts = uniqueEnriched.map((c) => c.synopsis || c.title)
+
     const vocab = buildVocab([baseSynopsis, ...candTexts])
     const baseVec = tfVector(baseSynopsis, vocab)
-    sims = candTexts.map((txt) => cosine(baseVec, tfVector(txt, vocab)))
-    console.log(`[v0] TF-IDF similarities: ${sims.map((s) => s.toFixed(3)).join(", ")}`)
+    const sims = candTexts.map((txt) => cosine(baseVec, tfVector(txt, vocab)))
+
+    // Apply genre + score boost for TF-IDF
+    const baseGenres = new Set((base.genres || []).map((g) => g.name))
+    rankedResults = uniqueEnriched.map((c, i) => {
+      const gset = new Set((c.genres || []).map((g) => g.name))
+      const inter = [...gset].filter((g) => baseGenres.has(g)).length
+      const union = new Set<string>([...gset, ...baseGenres]).size || 1
+      const jaccard = inter / union
+      const scoreNorm = typeof c.score === "number" ? Math.min(Math.max((c.score - 4) / 6, 0), 1) : 0
+      const final = 0.7 * sims[i] + 0.2 * jaccard + 0.1 * scoreNorm
+      return { anime: c, score: final }
+    })
+
+    rankedResults.sort((a, b) => b.score - a.score)
+    console.log(`[v0] TF-IDF similarities: ${rankedResults.map((r) => r.score.toFixed(3)).join(", ")}`)
   }
 
-  // genre + score boost
-  const baseGenres = new Set((base.genres || []).map((g) => g.name))
-  const boosted = uniqueEnriched.map((c, i) => {
-    const gset = new Set((c.genres || []).map((g) => g.name))
-    const inter = [...gset].filter((g) => baseGenres.has(g)).length
-    const union = new Set<string>([...gset, ...baseGenres]).size || 1
-    const jaccard = inter / union
-    const scoreNorm = typeof c.score === "number" ? Math.min(Math.max((c.score - 4) / 6, 0), 1) : 0
-    const final = 0.7 * sims[i] + 0.2 * jaccard + 0.1 * scoreNorm
-    return { anime: c, final }
-  })
-
-  boosted.sort((a, b) => b.final - a.final)
-
-  const minSimilarity = embeddings ? 0.1 : 0.05 // Lower threshold for TF-IDF
-  const qualityFiltered = boosted.filter(({ final }) => final > minSimilarity)
+  // Apply quality filtering
+  const minSimilarity = rankedResults && rankedResults.length > 0 && rankedResults[0].score > 0.5 ? 0.1 : 0.05
+  const qualityFiltered = rankedResults.filter(({ score }) => score > minSimilarity)
 
   // Take up to 12 results, but ensure minimum quality
-  const finalResults = qualityFiltered.length >= 3 ? qualityFiltered : boosted
+  const finalResults = qualityFiltered.length >= 3 ? qualityFiltered : rankedResults
 
   // 5) Map for UI
-  const items = finalResults.slice(0, 12).map(({ anime, final }) => ({
+  const items = finalResults.slice(0, 12).map(({ anime, score }) => ({
     id: String(anime.mal_id),
     title: anime.title,
     synopsis: anime.synopsis,
@@ -259,7 +316,7 @@ export async function GET(req: NextRequest) {
       anime.images?.webp?.image_url ||
       `/placeholder.svg?height=288&width=512&query=anime%20cover%20${encodeURIComponent(anime.title)}`,
     url: anime.url,
-    similarity: Number.parseFloat(final.toFixed(3)), // Added similarity score for debugging
+    similarity: Number.parseFloat(score.toFixed(3)), // Added similarity score for debugging
   }))
 
   console.log(`[v0] Returning ${items.length} recommendations`)
