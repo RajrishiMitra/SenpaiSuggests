@@ -1,55 +1,70 @@
-# Anime recommendation website
+# Senpai Suggests
 
-*Automatically synced with your [v0.app](https://v0.app) deployments*
-
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/rajrishi0219-1654s-projects/v0-anime-recommendation-website)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.app-black?style=for-the-badge)](https://v0.app/chat/projects/o4xSVgVli5M)
+**Deployed Website: [http://senpaisuggests.vercel.app/](http://senpaisuggests.vercel.app/)**
 
 ## Overview
 
-This repository will stay in sync with your deployed chats on [v0.app](https://v0.app).
-Any changes you make to your deployed app will be automatically pushed to this repository from [v0.app](https://v0.app).
+Senpai Suggests is a web application that provides personalized anime recommendations. It leverages AI to offer context-aware suggestions and includes a fallback to a TF-IDF algorithm. The platform allows users to search for anime, view detailed information, and receive recommendations based on their preferences.
 
 ## Features
 
-- **AI-Powered Recommendations**: Uses OpenAI ChatGPT models for context-aware, human-like anime recommendations
-- **Fallback System**: Automatically falls back to TF-IDF algorithm if OpenAI API is unavailable
-- **Real-time Search**: Search and get recommendations for any anime
-- **Detailed Information**: View anime details, ratings, genres, and synopses
+- **AI-Powered Recommendations**: Utilizes OpenAI's ChatGPT for intelligent and context-aware anime suggestions.
+- **Fallback System**: If the OpenAI API is unavailable, it seamlessly switches to a TF-IDF algorithm for recommendations.
+- **Real-time Search**: Instantly search and get recommendations for any anime.
+- **Detailed Information**: Access comprehensive details for each anime, including ratings, genres, and synopses.
+- **User Profiles**: Create and manage your own profile to keep track of your favorite anime and recommendations.
+
+## Tech Stack
+
+- **Framework**: [Next.js](https://nextjs.org/)
+- **Styling**: [Tailwind CSS](https://tailwindcss.com/)
+- **UI Components**: [Radix UI](https://www.radix-ui.com/)
+- **Database**: [Supabase](https://supabase.io/)
+- **AI**: [OpenAI](https://openai.com/)
+
+## Getting Started
+
+### Prerequisites
+
+- [Node.js](https://nodejs.org/en/) (v18 or higher)
+- [pnpm](https://pnpm.io/)
+
+### Installation
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/your-username/senpai-suggests.git
+   ```
+2. Navigate to the project directory:
+   ```bash
+   cd senpai-suggests
+   ```
+3. Install the dependencies:
+   ```bash
+   pnpm install
+   ```
+
+### Running the Application
+
+1. Create a `.env.local` file in the root of the project and add the necessary environment variables (see below).
+2. Start the development server:
+   ```bash
+   pnpm dev
+   ```
+3. Open [http://localhost:3000](http://localhost:3000) in your browser to see the result.
 
 ## Environment Variables
 
-To run this project, you'll need to add the following environment variables:
+To run this project, you will need to add the following environment variables to your `.env.local` file:
 
-### Required for Enhanced Recommendations
-- `OPENAI_API_KEY`: Your OpenAI API key for ChatGPT-powered recommendations
+- `OPENAI_API_KEY`: Your OpenAI API key for ChatGPT-powered recommendations.
+- `SUPABASE_URL`: Your Supabase project URL.
+- `SUPABASE_ANON_KEY`: Your Supabase anonymous key.
+- `NEXT_PUBLIC_SUPABASE_URL`: Your public Supabase URL.
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Your public Supabase anonymous key.
 
-### Optional (for database features)
-- `SUPABASE_URL`: Your Supabase project URL
-- `SUPABASE_ANON_KEY`: Your Supabase anonymous key
-- `NEXT_PUBLIC_SUPABASE_URL`: Public Supabase URL
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Public Supabase anonymous key
-
-### Note on Recommendations
-- **With OpenAI API**: Get enhanced, context-aware recommendations that understand plot themes, character types, and anime tone
-- **Without OpenAI API**: Falls back to TF-IDF algorithm for basic similarity matching
-- The app will continue to function regardless of API availability
+**Note**: The app will still function without the OpenAI API key, but the recommendations will be less sophisticated.
 
 ## Deployment
 
-Your project is live at:
-
-**[https://vercel.com/rajrishi0219-1654s-projects/v0-anime-recommendation-website](https://vercel.com/rajrishi0219-1654s-projects/v0-anime-recommendation-website)**
-
-## Build your app
-
-Continue building your app on:
-
-**[https://v0.app/chat/projects/o4xSVgVli5M](https://v0.app/chat/projects/o4xSVgVli5M)**
-
-## How It Works
-
-1. Create and modify your project using [v0.app](https://v0.app)
-2. Deploy your chats from the v0 interface
-3. Changes are automatically pushed to this repository
-4. Vercel deploys the latest version from this repository
+This project is deployed on [Vercel](https://vercel.com/). Any changes pushed to the `main` branch will trigger a new deployment.
