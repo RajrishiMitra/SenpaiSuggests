@@ -32,8 +32,7 @@ export default function AboutPage() {
                 <h3 className="font-semibold text-neumorphic">2) AI</h3>
                 <p className="text-sm text-muted-neumorphic mt-1">
                   Content-based similarity via TF cosine over synopsis with a genre overlap boost. If available, we
-                  upgrade to semantic embeddings using HuggingFace's{" "}
-                  <span className="whitespace-nowrap">all-MiniLM-L6-v2</span>.
+                  upgrade to semantic re-ranking using OpenAI's gpt-4o-mini model.
                 </p>
               </div>
               <div className="card-neumorphic">
@@ -51,7 +50,7 @@ export default function AboutPage() {
                 <h4 className="font-semibold text-neumorphic">Free APIs we use</h4>
                 <ul className="mt-2 text-sm text-muted-neumorphic list-disc list-inside">
                   <li>Jikan API (MyAnimeList)</li>
-                  <li>HuggingFace Inference API (optional embeddings)</li>
+                  <li>OpenAI API</li>
                 </ul>
               </div>
               <div className="card-neumorphic">
